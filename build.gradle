@@ -19,7 +19,8 @@ application {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
-    compile 'info.picocli:picocli:4.3.2'
+    testImplementation group: 'junit', name: 'junit', version: '4.12'
+    implementation 'info.picocli:picocli:4.3.2'
     implementation 'org.xmlunit:xmlunit-core:2.7.0'
+    implementation 'com.google.code.gson:gson:2.8.6'
 }

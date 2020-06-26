@@ -1,0 +1,10 @@
+<document>
+    <different>reference test</different>
+    <numeric>1.1</numeric>
+    <numeric_bad>8.0</numeric_bad>
+    <ignore>14/07/2020</ignore>
+    <more_numeric>
+        <value>1</value>
+        <value>2</value>
+    </more_numeric>
+</document>
