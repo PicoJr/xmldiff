@@ -41,11 +41,15 @@ class JsonContent {
     boolean same;
     List<String> different;
     List<String> ignored;
+    List<String> numeric_negligible;
+    List<String> numeric_non_negligible;
 
     public JsonContent() {
         same = false;
         different = new ArrayList<>();
         ignored = new ArrayList<>();
+        numeric_negligible = new ArrayList<>();
+        numeric_non_negligible = new ArrayList<>();
     }
 }
 
@@ -61,6 +65,12 @@ class Application implements Callable<Integer> {
 
     @CommandLine.Option(names = {"--ignore"}, description = "xpaths ignored from comparison")
     List<String> ignored_xpaths = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--numeric"}, description = "xpaths with numeric tolerance")
+    List<String> numeric_xpaths = new ArrayList<>();
+
+    @CommandLine.Option(names = {"--tolerance"}, description = "numeric tolerance 0.01 = 1%")
+    Double tolerance = 0.01; // 1%
 
     // this example implements Callable, so parsing, error handling and handling user
     // requests for usage help or version help can be done with one line of code.
@@ -95,7 +105,30 @@ class Application implements Callable<Integer> {
                 comparison.getControlDetails().getXPath();
     }
 
-    private static Stream<Difference> findDifferences(Source control, Source test, XPathEngine xPathEngine, Set<String> ignored_paths) {
+    // let's reinvent the wheel...
+    private static boolean isNumeric(String str) {
+        try {
+            Double.parseDouble(str);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private static DifferenceType compareMaybeNumeric(String left, String right, double tolerance) {
+        if (isNumeric(left) && isNumeric(right)) {
+            double left_double = Double.parseDouble(left);
+            double right_double = Double.parseDouble(right);
+            if (Math.abs(left_double - right_double) < (tolerance * right_double)) {
+                return DifferenceType.NUMERIC_NEGLIGIBLE;
+            } else {
+                return DifferenceType.NUMERIC_NON_NEGLIGIBLE;
+            }
+        }
+        return DifferenceType.DIFFERENT;
+    }
+
+    private static Stream<Difference> findDifferences(Source control, Source test, XPathEngine xPathEngine, Set<String> ignored_paths, Set<String> numeric_paths, Double tolerance) {
         List<Difference> differences = new ArrayList<>();
         DiffBuilder
                 .compare(control)
@@ -104,13 +137,14 @@ class Application implements Callable<Integer> {
                 (comparison, outcome) -> {
                     if (comparison.getType() == ComparisonType.TEXT_VALUE) {
                         Iterable<Node> differing_nodes = xPathEngine.selectNodes(comparison.getControlDetails().getParentXPath(), control);
+                        DifferenceType differenceType = DifferenceType.DIFFERENT;
                         if (StreamSupport.stream(differing_nodes.spliterator(), false).anyMatch((node) -> ignored_paths.contains(getXPath(node)))) {
-                            // System.out.println("ignored: " + comparison);
-                            differences.add(new Difference(DifferenceType.IGNORED, formatComparison(comparison)));
-                        } else {
-                            // System.out.println("found a difference: " + comparison);
-                            differences.add(new Difference(DifferenceType.DIFFERENT, formatComparison(comparison)));
+                            differenceType = DifferenceType.IGNORED;
                         }
+                        if (StreamSupport.stream(differing_nodes.spliterator(), false).anyMatch((node) -> numeric_paths.contains(getXPath(node)))) {
+                            differenceType = compareMaybeNumeric(comparison.getTestDetails().getTarget().getTextContent(), comparison.getControlDetails().getTarget().getTextContent(), tolerance);
+                        }
+                        differences.add(new Difference(differenceType, formatComparison(comparison)));
                     }
                 }
         ).build();
@@ -123,6 +157,12 @@ class Application implements Callable<Integer> {
             switch (difference.type) {
                 case IGNORED:
                     jsonContent.ignored.add(difference.message);
+                    break;
+                case NUMERIC_NEGLIGIBLE:
+                    jsonContent.numeric_negligible.add(difference.message);
+                    break;
+                case NUMERIC_NON_NEGLIGIBLE:
+                    jsonContent.numeric_non_negligible.add(difference.message);
                     break;
                 default:
                     jsonContent.different.add(difference.message);
@@ -150,9 +190,9 @@ class Application implements Callable<Integer> {
         Source test = Input.fromFile(test_path.toFile()).build();
         XPathEngine xPathEngine = new JAXPXPathEngine();
         Set<String> ignored_paths = getXPaths(ignored_xpaths, control, xPathEngine);
-        Stream<Difference> differences = findDifferences(control, test, xPathEngine, ignored_paths);
+        Set<String> numeric_paths = getXPaths(numeric_xpaths, control, xPathEngine);
+        Stream<Difference> differences = findDifferences(control, test, xPathEngine, ignored_paths, numeric_paths, tolerance);
         JsonContent jsonContent = toJson(differences);
-        // Gson gson = new Gson();
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         System.out.println(gson.toJson(jsonContent));
         return 0;
