@@ -133,21 +133,25 @@ class Application implements Callable<Integer> {
         DiffBuilder
                 .compare(control)
                 .withTest(test)
-                .ignoreComments().ignoreWhitespace().withComparisonListeners(
-                (comparison, outcome) -> {
-                    if (comparison.getType() == ComparisonType.TEXT_VALUE) {
-                        Iterable<Node> differing_nodes = xPathEngine.selectNodes(comparison.getControlDetails().getParentXPath(), control);
-                        DifferenceType differenceType = DifferenceType.DIFFERENT;
-                        if (StreamSupport.stream(differing_nodes.spliterator(), false).anyMatch((node) -> ignored_paths.contains(getXPath(node)))) {
-                            differenceType = DifferenceType.IGNORED;
+                .checkForIdentical()
+                .normalizeWhitespace()
+                .ignoreComments()
+                .ignoreWhitespace()
+                .withComparisonListeners(
+                        (comparison, outcome) -> {
+                            if (comparison.getType() == ComparisonType.TEXT_VALUE && outcome == ComparisonResult.DIFFERENT) {
+                                Iterable<Node> differing_nodes = xPathEngine.selectNodes(comparison.getControlDetails().getParentXPath(), control);
+                                DifferenceType differenceType = DifferenceType.DIFFERENT;
+                                if (StreamSupport.stream(differing_nodes.spliterator(), false).anyMatch((node) -> ignored_paths.contains(getXPath(node)))) {
+                                    differenceType = DifferenceType.IGNORED;
+                                }
+                                if (StreamSupport.stream(differing_nodes.spliterator(), false).anyMatch((node) -> numeric_paths.contains(getXPath(node)))) {
+                                    differenceType = compareMaybeNumeric(comparison.getTestDetails().getTarget().getTextContent(), comparison.getControlDetails().getTarget().getTextContent(), tolerance);
+                                }
+                                differences.add(new Difference(differenceType, formatComparison(comparison)));
+                            }
                         }
-                        if (StreamSupport.stream(differing_nodes.spliterator(), false).anyMatch((node) -> numeric_paths.contains(getXPath(node)))) {
-                            differenceType = compareMaybeNumeric(comparison.getTestDetails().getTarget().getTextContent(), comparison.getControlDetails().getTarget().getTextContent(), tolerance);
-                        }
-                        differences.add(new Difference(differenceType, formatComparison(comparison)));
-                    }
-                }
-        ).build();
+                ).build();
         return differences.stream();
     }
 
