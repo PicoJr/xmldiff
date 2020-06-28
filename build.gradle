@@ -4,6 +4,9 @@ plugins {
 
     // Apply the application plugin to add support for building a CLI application.
     id 'application'
+
+    // graalVM see https://github.com/palantir/gradle-graal
+    id "com.palantir.graal" version "0.7.1-7-g33626dd"
 }
 
 group 'org.example'
@@ -11,6 +14,7 @@ version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    gradlePluginPortal()
 }
 
 application {
@@ -23,4 +27,10 @@ dependencies {
     implementation 'info.picocli:picocli:4.3.2'
     implementation 'org.xmlunit:xmlunit-core:2.7.0'
     implementation 'com.google.code.gson:gson:2.8.6'
+}
+
+graal {
+    mainClass 'Application'
+    outputName 'xmldiff'
+    javaVersion '11'
 }

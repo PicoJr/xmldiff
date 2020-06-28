@@ -69,7 +69,7 @@ class Application implements Callable<Integer> {
     @CommandLine.Option(names = {"--numeric"}, description = "xpaths with numeric tolerance")
     List<String> numeric_xpaths = new ArrayList<>();
 
-    @CommandLine.Option(names = {"--tolerance"}, description = "numeric tolerance 0.01 = 1%")
+    @CommandLine.Option(names = {"--tolerance"}, description = "numeric tolerance 0.01 = 1%%")
     Double tolerance = 0.01; // 1%
 
     // this example implements Callable, so parsing, error handling and handling user
