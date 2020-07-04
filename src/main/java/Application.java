@@ -173,7 +173,7 @@ class Application implements Callable<Integer> {
                     break;
             }
         }));
-        jsonContent.same = jsonContent.different.isEmpty();
+        jsonContent.same = jsonContent.different.isEmpty() && jsonContent.numeric_non_negligible.isEmpty();
         return jsonContent;
     }
 
